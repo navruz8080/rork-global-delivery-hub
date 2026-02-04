@@ -4,6 +4,43 @@ export interface DbUser extends User {
   passwordHash: string;
 }
 
+export interface DeliveryOrder {
+  id: string;
+  userId: string;
+  routeFrom: string;
+  routeTo: string;
+  route: string;
+  dimensions: { length: number; width: number; height: number };
+  weight: number;
+  quantity: number;
+  totalWeight: number;
+  totalVolume: number;
+  price: number;
+  finalPrice: number;
+  bonusDebited: number;
+  fullName: string;
+  phoneNumber: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Package {
+  id: string;
+  userId: string;
+  trackNumber: string;
+  description: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  history: Array<{
+    id: string;
+    status: string;
+    timestamp: string;
+    description: string;
+  }>;
+}
+
 export interface DbStore {
   users: Map<string, DbUser>;
   products: Map<string, Product>;
@@ -13,6 +50,7 @@ export interface DbStore {
   favorites: Map<string, string[]>;
   sellers: Map<string, SellerProfile>;
   reviews: Map<string, Review[]>;
+  packages?: Map<string, Package>; // Delivery packages
 }
 
 export interface Review {
@@ -36,6 +74,7 @@ const store: DbStore = {
   favorites: new Map(),
   sellers: new Map(),
   reviews: new Map(),
+  packages: new Map(), // Delivery packages
 };
 
 export function getStore(): DbStore {

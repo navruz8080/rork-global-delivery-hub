@@ -5,8 +5,14 @@ import Colors from '@/constants/colors';
 import { TrackingEvent, OrderStatus } from '@/types';
 
 interface TrackingTimelineProps {
-  events: TrackingEvent[];
-  currentStatus: OrderStatus;
+  events: Array<{
+    id: string;
+    status: string;
+    timestamp: string;
+    description: string;
+    location?: string;
+  }>;
+  currentStatus?: OrderStatus;
 }
 
 const statusIcons: Record<string, typeof Package> = {
@@ -68,11 +74,16 @@ export default function TrackingTimeline({ events, currentStatus }: TrackingTime
                 </Text>
                 <Text style={styles.time}>{time}</Text>
               </View>
-              <View style={styles.details}>
-                <MapPin size={12} color={Colors.light.textTertiary} />
-                <Text style={styles.location}>{event.location}</Text>
+              {event.location && (
+                <View style={styles.details}>
+                  <MapPin size={12} color={Colors.light.textTertiary} />
+                  <Text style={styles.location}>{event.location}</Text>
+                  <Text style={styles.date}>{date}</Text>
+                </View>
+              )}
+              {!event.location && (
                 <Text style={styles.date}>{date}</Text>
-              </View>
+              )}
             </View>
           </View>
         );

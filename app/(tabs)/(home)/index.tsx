@@ -9,73 +9,78 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Bell, ChevronRight, Flame, Zap, Gift } from 'lucide-react-native';
+import { Calculator, Package, MapPin, Bell, ArrowRight, Truck, Box, Clock } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Colors from '@/constants/colors';
-import SearchBar from '@/components/SearchBar';
-import ProductCard from '@/components/ProductCard';
-import CategoryCard from '@/components/CategoryCard';
 import { useApp } from '@/providers/AppProvider';
 import { trpc } from '@/lib/trpc';
 
-export default function HomeScreen() {
+export default function DeliveryHomeScreen() {
   const router = useRouter();
-  const { user, categories } = useApp();
-  const [searchQuery, setSearchQuery] = useState('');
+  const { user } = useApp();
+  const [refreshing, setRefreshing] = useState(false);
 
-  const featuredQuery = trpc.products.featured.useQuery();
-  const dealsQuery = trpc.products.deals.useQuery();
+  const packagesQuery = trpc.delivery.getMyPackages.useQuery();
+  const ordersQuery = trpc.delivery.getMyOrders.useQuery();
+  const recentActivityQuery = trpc.delivery.getRecentActivity.useQuery();
 
-  const isLoading = featuredQuery.isLoading || dealsQuery.isLoading;
-  const isRefetching = featuredQuery.isRefetching || dealsQuery.isRefetching;
-
-  const onRefresh = useCallback(() => {
-    featuredQuery.refetch();
-    dealsQuery.refetch();
-  }, [featuredQuery, dealsQuery]);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      packagesQuery.refetch(),
+      ordersQuery.refetch(),
+      recentActivityQuery.refetch(),
+    ]);
+    setRefreshing(false);
+  }, [packagesQuery, ordersQuery, recentActivityQuery]);
 
   const handleNotifications = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push('/notifications');
   }, [router]);
 
-  const handleViewAllDeals = useCallback(() => {
+  const handleCalculate = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push('/catalog?filter=deals');
+    router.push('/(tabs)/calculator');
   }, [router]);
 
-  const handleViewAllCategories = useCallback(() => {
+  const handlePackages = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push('/catalog');
+    router.push('/(tabs)/packages');
   }, [router]);
 
-  const featuredProducts = featuredQuery.data ?? [];
-  const dealsProducts = dealsQuery.data ?? [];
+  const handleTracking = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push('/(tabs)/tracking');
+  }, [router]);
+
+  const handleMarketplace = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push('/(tabs)/marketplace');
+  }, [router]);
+
+  const packages = packagesQuery.data?.packages ?? [];
+  const orders = ordersQuery.data?.orders ?? [];
+  const recentActivity = recentActivityQuery.data ?? [];
+
+  const activePackages = packages.filter(p => 
+    !['ISSUED', 'CANCELED'].includes(p.status)
+  );
 
   return (
     <View style={styles.container}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.greeting}>Hello, {user.firstName || 'Guest'} 👋</Text>
-            <Text style={styles.subtitle}>What are you looking for today?</Text>
+            <Text style={styles.greeting}>Hello, {user?.firstName || 'Guest'} 👋</Text>
+            <Text style={styles.subtitle}>Your delivery hub</Text>
           </View>
           <Pressable style={styles.notificationButton} onPress={handleNotifications}>
             <Bell size={22} color={Colors.light.text} />
-            <View style={styles.notificationBadge} />
+            {recentActivity.length > 0 && <View style={styles.notificationBadge} />}
           </Pressable>
-        </View>
-
-        <View style={styles.searchContainer}>
-          <SearchBar
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onFilterPress={() => router.push('/catalog')}
-            placeholder="Search products, brands..."
-          />
         </View>
       </SafeAreaView>
 
@@ -84,151 +89,190 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <Pressable style={styles.promoBanner} onPress={handleViewAllDeals}>
-          <LinearGradient
-            colors={[Colors.light.gradientStart, Colors.light.gradientEnd]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.promoGradient}
-          >
-            <View style={styles.promoContent}>
-              <View style={styles.promoTextContainer}>
-                <View style={styles.promoTag}>
-                  <Zap size={12} color="#FFF" fill="#FFF" />
-                  <Text style={styles.promoTagText}>FLASH SALE</Text>
-                </View>
-                <Text style={styles.promoTitle}>Up to 50% Off</Text>
-                <Text style={styles.promoSubtitle}>On Electronics & Fashion</Text>
-              </View>
-              <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400' }}
-                style={styles.promoImage}
-                contentFit="contain"
-              />
-            </View>
-          </LinearGradient>
-        </Pressable>
-
+        {/* Quick Actions */}
         <View style={styles.quickActions}>
-          <Pressable style={styles.quickAction} onPress={handleViewAllDeals}>
-            <View style={[styles.quickActionIcon, { backgroundColor: '#FEE2E2' }]}>
-              <Flame size={20} color="#EF4444" />
-            </View>
-            <Text style={styles.quickActionText}>Hot Deals</Text>
+          <Pressable style={styles.quickAction} onPress={handleCalculate}>
+            <LinearGradient
+              colors={[Colors.light.secondary, Colors.light.gradientEnd]}
+              style={styles.quickActionGradient}
+            >
+              <Calculator size={24} color="#FFF" />
+            </LinearGradient>
+            <Text style={styles.quickActionText}>Calculate</Text>
+            <Text style={styles.quickActionSubtext}>Delivery cost</Text>
           </Pressable>
-          <Pressable style={styles.quickAction} onPress={handleViewAllDeals}>
+
+          <Pressable style={styles.quickAction} onPress={handlePackages}>
             <View style={[styles.quickActionIcon, { backgroundColor: '#DBEAFE' }]}>
-              <Zap size={20} color="#3B82F6" />
+              <Package size={24} color="#3B82F6" />
             </View>
-            <Text style={styles.quickActionText}>Flash Sale</Text>
+            <Text style={styles.quickActionText}>My Packages</Text>
+            <Text style={styles.quickActionSubtext}>{activePackages.length} active</Text>
           </Pressable>
-          <Pressable style={styles.quickAction}>
+
+          <Pressable style={styles.quickAction} onPress={handleTracking}>
             <View style={[styles.quickActionIcon, { backgroundColor: '#D1FAE5' }]}>
-              <Gift size={20} color="#10B981" />
+              <MapPin size={24} color="#10B981" />
             </View>
-            <Text style={styles.quickActionText}>Free Ship</Text>
+            <Text style={styles.quickActionText}>Track</Text>
+            <Text style={styles.quickActionSubtext}>Shipments</Text>
           </Pressable>
         </View>
 
-        {categories.length > 0 && (
+        {/* Active Packages */}
+        {activePackages.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Categories</Text>
-              <Pressable style={styles.viewAllButton} onPress={handleViewAllCategories}>
+              <Text style={styles.sectionTitle}>Active Packages</Text>
+              <Pressable onPress={handlePackages}>
                 <Text style={styles.viewAllText}>View All</Text>
-                <ChevronRight size={16} color={Colors.light.secondary} />
               </Pressable>
             </View>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoriesScroll}
-            >
-              {categories.slice(0, 6).map(category => (
-                <View key={category.id} style={styles.categoryItem}>
-                  <CategoryCard category={category} size="small" />
+            {activePackages.slice(0, 3).map((pkg) => (
+              <Pressable
+                key={pkg.id}
+                style={styles.packageCard}
+                onPress={() => router.push(`/package/${pkg.id}`)}
+              >
+                <View style={styles.packageInfo}>
+                  <View style={styles.packageHeader}>
+                    <Text style={styles.packageTrack}>{pkg.trackNumber}</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(pkg.status) }]}>
+                      <Text style={styles.statusText}>{getStatusLabel(pkg.status)}</Text>
+                    </View>
+                  </View>
+                  {pkg.description && (
+                    <Text style={styles.packageDescription} numberOfLines={1}>
+                      {pkg.description}
+                    </Text>
+                  )}
+                  <Text style={styles.packageDate}>
+                    Updated {formatDate(pkg.updatedAt)}
+                  </Text>
                 </View>
-              ))}
-            </ScrollView>
+                <ArrowRight size={20} color={Colors.light.textSecondary} />
+              </Pressable>
+            ))}
           </View>
         )}
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>🔥 Hot Deals</Text>
-            <Pressable style={styles.viewAllButton} onPress={handleViewAllDeals}>
-              <Text style={styles.viewAllText}>View All</Text>
-              <ChevronRight size={16} color={Colors.light.secondary} />
-            </Pressable>
-          </View>
-          {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={Colors.light.secondary} />
+        {/* Recent Orders */}
+        {orders.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Recent Orders</Text>
+              <Pressable onPress={() => router.push('/orders')}>
+                <Text style={styles.viewAllText}>View All</Text>
+              </Pressable>
             </View>
-          ) : (
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.productsScroll}
-            >
-              {dealsProducts.map(product => (
-                <View key={product.id} style={styles.productItem}>
-                  <ProductCard product={product} />
+            {orders.slice(0, 2).map((order) => (
+              <Pressable
+                key={order.id}
+                style={styles.orderCard}
+                onPress={() => router.push(`/order/${order.id}`)}
+              >
+                <View style={styles.orderInfo}>
+                  <Text style={styles.orderRoute}>{order.route}</Text>
+                  <View style={styles.orderDetails}>
+                    <View style={styles.orderDetail}>
+                      <Box size={14} color={Colors.light.textSecondary} />
+                      <Text style={styles.orderDetailText}>
+                        {order.totalWeight} kg / {order.totalVolume} m³
+                      </Text>
+                    </View>
+                    <View style={styles.orderDetail}>
+                      <Clock size={14} color={Colors.light.textSecondary} />
+                      <Text style={styles.orderDetailText}>
+                        {formatDate(order.createdAt)}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
-              ))}
-            </ScrollView>
-          )}
-        </View>
+                <View style={styles.orderPrice}>
+                  <Text style={styles.orderPriceText}>${order.price.toFixed(2)}</Text>
+                  <Text style={styles.orderStatus}>{getOrderStatusLabel(order.status)}</Text>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        )}
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Featured Products</Text>
-            <Pressable style={styles.viewAllButton} onPress={() => router.push('/catalog')}>
-              <Text style={styles.viewAllText}>View All</Text>
-              <ChevronRight size={16} color={Colors.light.secondary} />
-            </Pressable>
-          </View>
-          {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={Colors.light.secondary} />
+        {/* Marketplace Link */}
+        <Pressable style={styles.marketplaceCard} onPress={handleMarketplace}>
+          <LinearGradient
+            colors={['#F3F4F6', '#E5E7EB']}
+            style={styles.marketplaceGradient}
+          >
+            <View style={styles.marketplaceContent}>
+              <View>
+                <Text style={styles.marketplaceTitle}>Browse Marketplace</Text>
+                <Text style={styles.marketplaceSubtitle}>Find products to deliver</Text>
+              </View>
+              <ArrowRight size={24} color={Colors.light.text} />
             </View>
-          ) : (
-            <View style={styles.productsGrid}>
-              {featuredProducts.slice(0, 4).map(product => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </View>
-          )}
-        </View>
-
-        <View style={styles.trustSection}>
-          <View style={styles.trustItem}>
-            <View style={[styles.trustIcon, { backgroundColor: '#DBEAFE' }]}>
-              <Zap size={18} color="#3B82F6" />
-            </View>
-            <View>
-              <Text style={styles.trustTitle}>Fast Delivery</Text>
-              <Text style={styles.trustSubtitle}>3-10 business days</Text>
-            </View>
-          </View>
-          <View style={styles.trustItem}>
-            <View style={[styles.trustIcon, { backgroundColor: '#D1FAE5' }]}>
-              <Gift size={18} color="#10B981" />
-            </View>
-            <View>
-              <Text style={styles.trustTitle}>Free Returns</Text>
-              <Text style={styles.trustSubtitle}>Within 30 days</Text>
-            </View>
-          </View>
-        </View>
+          </LinearGradient>
+        </Pressable>
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
     </View>
   );
+}
+
+function getStatusColor(status: string): string {
+  const colors: Record<string, string> = {
+    AWAITING_IU: '#FEF3C7',
+    IU_STOCK: '#DBEAFE',
+    IN_TRANSIT: '#E0E7FF',
+    AT_PVZ: '#D1FAE5',
+    READY_FOR_PICKUP: '#D1FAE5',
+    ISSUED: '#D1FAE5',
+    CANCELED: '#FEE2E2',
+  };
+  return colors[status] || '#F3F4F6';
+}
+
+function getStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    AWAITING_IU: 'Awaiting IU',
+    IU_STOCK: 'At IU Warehouse',
+    IN_TRANSIT: 'In Transit',
+    AT_PVZ: 'At PVZ',
+    READY_FOR_PICKUP: 'Ready',
+    ISSUED: 'Delivered',
+    CANCELED: 'Canceled',
+  };
+  return labels[status] || status;
+}
+
+function getOrderStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    pending: 'Pending',
+    confirmed: 'Confirmed',
+    processing: 'Processing',
+    shipped: 'Shipped',
+    delivered: 'Delivered',
+    cancelled: 'Cancelled',
+  };
+  return labels[status] || status;
+}
+
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
 }
 
 const styles = StyleSheet.create({
@@ -267,6 +311,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.surfaceSecondary,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
   notificationBadge: {
     position: 'absolute',
@@ -279,61 +324,11 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: Colors.light.surface,
   },
-  searchContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingTop: 8,
-  },
-  promoBanner: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  promoGradient: {
-    padding: 20,
-  },
-  promoContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  promoTextContainer: {
-    flex: 1,
-  },
-  promoTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-    gap: 4,
-    marginBottom: 8,
-  },
-  promoTagText: {
-    color: '#FFF',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  promoTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#FFF',
-    marginBottom: 4,
-  },
-  promoSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.9)',
-  },
-  promoImage: {
-    width: 100,
-    height: 100,
   },
   quickActions: {
     flexDirection: 'row',
@@ -343,18 +338,32 @@ const styles = StyleSheet.create({
   },
   quickAction: {
     alignItems: 'center',
+    flex: 1,
+  },
+  quickActionGradient: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   quickActionIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
+    width: 64,
+    height: 64,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
   },
   quickActionText: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.light.text,
+    marginBottom: 2,
+  },
+  quickActionSubtext: {
+    fontSize: 11,
     color: Colors.light.textSecondary,
   },
   section: {
@@ -372,70 +381,124 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.light.text,
   },
-  viewAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
   viewAllText: {
     fontSize: 14,
     fontWeight: '600',
     color: Colors.light.secondary,
   },
-  categoriesScroll: {
-    paddingHorizontal: 20,
-    gap: 12,
-  },
-  categoryItem: {
-    marginRight: 12,
-  },
-  productsScroll: {
-    paddingHorizontal: 20,
-  },
-  productItem: {
-    marginRight: 12,
-  },
-  productsGrid: {
+  packageCard: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 20,
     justifyContent: 'space-between',
-  },
-  bottomSpacing: {
-    height: 20,
-  },
-  trustSection: {
-    marginHorizontal: 20,
-    marginBottom: 24,
-    gap: 12,
-  },
-  trustItem: {
-    flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.light.surface,
     borderRadius: 14,
-    padding: 14,
-    gap: 12,
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 12,
   },
-  trustIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
+  packageInfo: {
+    flex: 1,
+  },
+  packageHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
   },
-  trustTitle: {
-    fontSize: 14,
+  packageTrack: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.light.text,
+    fontFamily: 'monospace',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statusText: {
+    fontSize: 11,
     fontWeight: '600',
     color: Colors.light.text,
   },
-  trustSubtitle: {
+  packageDescription: {
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+    marginBottom: 4,
+  },
+  packageDate: {
     fontSize: 12,
     color: Colors.light.textSecondary,
-    marginTop: 2,
   },
-  loadingContainer: {
-    paddingVertical: 40,
+  orderCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.light.surface,
+    borderRadius: 14,
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 12,
+  },
+  orderInfo: {
+    flex: 1,
+  },
+  orderRoute: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.light.text,
+    marginBottom: 8,
+  },
+  orderDetails: {
+    gap: 6,
+  },
+  orderDetail: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+  },
+  orderDetailText: {
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+  },
+  orderPrice: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  orderPriceText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.light.text,
+    marginBottom: 4,
+  },
+  orderStatus: {
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+  },
+  marketplaceCard: {
+    marginHorizontal: 20,
+    marginBottom: 24,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  marketplaceGradient: {
+    padding: 20,
+  },
+  marketplaceContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  marketplaceTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.light.text,
+    marginBottom: 4,
+  },
+  marketplaceSubtitle: {
+    fontSize: 14,
+    color: Colors.light.textSecondary,
+  },
+  bottomSpacing: {
+    height: 20,
   },
 });

@@ -8,12 +8,14 @@ import { favoritesRouter } from "./routes/favorites";
 import { addressesRouter } from "./routes/addresses";
 import { sellersRouter } from "./routes/sellers";
 import { moderationRouter } from "./routes/moderation";
+import { deliveryRouter } from "./routes/delivery";
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
-  products: productsRouter,
+  delivery: deliveryRouter, // PRIMARY: Delivery workflow
+  products: productsRouter, // SECONDARY: Marketplace
   categories: categoriesRouter,
-  orders: ordersRouter,
+  orders: ordersRouter, // Marketplace orders (secondary)
   cart: cartRouter,
   favorites: favoritesRouter,
   addresses: addressesRouter,
